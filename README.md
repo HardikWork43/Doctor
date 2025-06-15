@@ -1,7 +1,10 @@
 I've created a comprehensive backend system for your dental clinic website! Here's what I've implemented:
 **
+
 🏗️ Backend Architecture**
+
 Database Models
+
 User: Handles patients, doctors, and admin users with authentication
 Doctor: Extended profile for doctors with specializations and availability
 Appointment: Complete appointment management system
