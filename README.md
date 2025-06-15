@@ -1,6 +1,6 @@
 I've created a comprehensive backend system for your dental clinic website! Here's what I've implemented:
-
-🏗️ Backend Architecture
+**
+🏗️ Backend Architecture**
 Database Models
 User: Handles patients, doctors, and admin users with authentication
 Doctor: Extended profile for doctors with specializations and availability
@@ -9,6 +9,8 @@ MedicalRecord: Patient medical history and treatment records
 Service: Dental services catalog with pricing
 BlogPost: Content management for blog articles
 Contact: Contact form submissions and inquiries
+
+
 API Endpoints
 Authentication (/api/auth)
 POST /register - User registration
@@ -43,12 +45,16 @@ Admin (/api/admin)
 GET /dashboard - Dashboard statistics
 GET /users - Get all users
 PUT /users/:id/status - Update user status
+
+
 Key Features
 🔐 Authentication & Authorization
 JWT-based authentication
 Role-based access control (patient, doctor, admin)
 Password hashing with bcrypt
 Protected routes with middleware
+
+
 👥 User Management
 Multi-role user system
 Profile management
