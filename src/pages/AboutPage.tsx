@@ -1,6 +1,8 @@
 import { CheckCircle2 } from 'lucide-react';
 import DoctorCard from '../components/team/DoctorCard';
 
+
+
 const AboutPage = () => {
   return (
     <div>
