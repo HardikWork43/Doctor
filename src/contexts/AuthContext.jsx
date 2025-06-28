@@ -1,5 +1,4 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { authAPI } from '../utils/api';
 
 const AuthContext = createContext();
 
@@ -22,12 +21,28 @@ export const AuthProvider = ({ children }) => {
       const token = localStorage.getItem('authToken');
       if (token) {
         try {
-          const response = await authAPI.getCurrentUser();
-          setUser(response.data.user);
-          setIsAuthenticated(true);
+          const response = await fetch('http://localhost:5000/api/auth/me', {
+            headers: {
+              'Authorization': `Bearer ${token}`
+            }
+          });
+          
+          if (response.ok) {
+            const data = await response.json();
+            setUser(data.data.user);
+            setIsAuthenticated(true);
+          } else {
+            localStorage.removeItem('authToken');
+            localStorage.removeItem('patientAuthenticated');
+            localStorage.removeItem('doctorAuthenticated');
+            localStorage.removeItem('adminAuthenticated');
+          }
         } catch (error) {
           console.error('Auth check failed:', error);
           localStorage.removeItem('authToken');
+          localStorage.removeItem('patientAuthenticated');
+          localStorage.removeItem('doctorAuthenticated');
+          localStorage.removeItem('adminAuthenticated');
         }
       }
       setLoading(false);
@@ -38,14 +53,36 @@ export const AuthProvider = ({ children }) => {
 
   const login = async (credentials) => {
     try {
-      const response = await authAPI.login(credentials);
-      const { user, token } = response.data;
-      
-      localStorage.setItem('authToken', token);
-      setUser(user);
-      setIsAuthenticated(true);
-      
-      return response;
+      const response = await fetch('http://localhost:5000/api/auth/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(credentials),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        const { user, token } = data.data;
+        
+        localStorage.setItem('authToken', token);
+        setUser(user);
+        setIsAuthenticated(true);
+        
+        // Set role-specific authentication flags
+        if (user.role === 'patient') {
+          localStorage.setItem('patientAuthenticated', 'true');
+        } else if (user.role === 'doctor') {
+          localStorage.setItem('doctorAuthenticated', 'true');
+        } else if (user.role === 'admin') {
+          localStorage.setItem('adminAuthenticated', 'true');
+        }
+        
+        return data;
+      } else {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Login failed');
+      }
     } catch (error) {
       throw error;
     }
@@ -53,14 +90,31 @@ export const AuthProvider = ({ children }) => {
 
   const register = async (userData) => {
     try {
-      const response = await authAPI.register(userData);
-      const { user, token } = response.data;
-      
-      localStorage.setItem('authToken', token);
-      setUser(user);
-      setIsAuthenticated(true);
-      
-      return response;
+      const response = await fetch('http://localhost:5000/api/auth/register', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(userData),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        const { user, token } = data.data;
+        
+        localStorage.setItem('authToken', token);
+        setUser(user);
+        setIsAuthenticated(true);
+        
+        if (user.role === 'patient') {
+          localStorage.setItem('patientAuthenticated', 'true');
+        }
+        
+        return data;
+      } else {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Registration failed');
+      }
     } catch (error) {
       throw error;
     }
@@ -68,6 +122,9 @@ export const AuthProvider = ({ children }) => {
 
   const logout = () => {
     localStorage.removeItem('authToken');
+    localStorage.removeItem('patientAuthenticated');
+    localStorage.removeItem('doctorAuthenticated');
+    localStorage.removeItem('adminAuthenticated');
     setUser(null);
     setIsAuthenticated(false);
   };

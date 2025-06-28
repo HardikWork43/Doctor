@@ -1,67 +1,71 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 
 type BlogPost = {
   id: string;
   title: string;
   excerpt: string;
   content: string;
-  author: string;
-  date: string;
+  author: {
+    firstName: string;
+    lastName: string;
+  };
+  publishedAt: string;
   category: string;
-  imageUrl: string;
+  views: number;
 };
-
-// Mock data for blog posts
-const mockBlogPosts: BlogPost[] = [
-  {
-    id: '1',
-    title: 'The Importance of Regular Dental Check-ups',
-    excerpt: 'Learn why regular dental visits are crucial for maintaining optimal oral health and preventing serious issues.',
-    content: 'Regular dental check-ups are essential for maintaining good oral health. During a check-up, your dentist will examine your teeth, gums, and mouth for any signs of problems. Early detection of issues such as cavities, gum disease, or oral cancer can lead to simpler and more effective treatments. Additionally, professional cleanings remove plaque and tartar buildup that regular brushing and flossing cannot eliminate. It is recommended to visit your dentist every six months, though some individuals with specific dental concerns may need more frequent visits. Remember, preventive care is always better and less expensive than treating advanced dental problems!',
-    author: 'Dr. James Wilson',
-    date: '2025-04-15',
-    category: 'Preventive Care',
-    imageUrl: '/images/blog/dental-checkup.jpg'
-  },
-  {
-    id: '2',
-    title: 'Understanding Tooth Sensitivity: Causes and Treatments',
-    excerpt: 'Are your teeth sensitive to hot, cold, or sweet foods? Discover the causes behind tooth sensitivity and effective treatments.',
-    content: 'Tooth sensitivity affects millions of people and can make eating, drinking, and even breathing uncomfortable. The most common cause is exposed dentin, which occurs when your tooth enamel wears down or your gums recede. Other causes include cavities, cracked teeth, worn fillings, and teeth grinding. Treatments range from using desensitizing toothpaste and fluoride treatments to dental bonding, crowns, inlays, or root canals for more severe cases. If you re experiencing tooth sensitivity, its important to consult with your dentist to identify the underlying cause and determine the most appropriate treatment plan for your specific situation.',
-    author: 'Dr. Emily Chen',
-    date: '2025-04-10',
-    category: 'Dental Health',
-    imageUrl: '/images/blog/tooth-sensitivity.jpg'
-  },
-  {
-    id: '3',
-    title: 'The Connection Between Oral Health and Overall Wellness',
-    excerpt: 'Did you know your oral health can affect your general health? Learn about the mouth-body connection.',
-    content: 'The health of your mouth, teeth, and gums can affect your overall health. Research has shown connections between poor oral health and various systemic conditions, including heart disease, diabetes, respiratory infections, and complications during pregnancy. The mouth is a gateway to the body, and bacteria from oral infections can enter the bloodstream and potentially affect other organs. Maintaining good oral hygiene through regular brushing, flossing, and dental check-ups not only preserves your smile but also contributes to your general well-being. This bidirectional relationship emphasizes the importance of integrating dental care into your overall healthcare routine.',
-    author: 'Dr. Michael Rodriguez',
-    date: '2025-04-05',
-    category: 'Health Education',
-    imageUrl: '/images/blog/oral-systemic-health.jpg'
-  },
-];
 
 const BlogPage: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [selectedCategory, setSelectedCategory] = useState<string>('');
+  const [blogPosts, setBlogPosts] = useState<BlogPost[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [categories, setCategories] = useState<string[]>([]);
   
-  // Get unique categories from blog posts
-  const categories = Array.from(new Set(mockBlogPosts.map(post => post.category)));
+  useEffect(() => {
+    loadBlogPosts();
+  }, []);
+
+  const loadBlogPosts = async () => {
+    try {
+      const response = await fetch('http://localhost:5000/api/blog?published=true');
+      if (response.ok) {
+        const data = await response.json();
+        setBlogPosts(data.data.posts);
+        
+        // Extract unique categories
+        const uniqueCategories = Array.from(new Set(data.data.posts.map((post: BlogPost) => post.category)));
+        setCategories(uniqueCategories);
+      }
+    } catch (error) {
+      console.error('Failed to load blog posts:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
   
   // Filter blog posts based on search term and selected category
-  const filteredPosts = mockBlogPosts.filter(post => {
+  const filteredPosts = blogPosts.filter(post => {
     const matchesSearch = post.title.toLowerCase().includes(searchTerm.toLowerCase()) || 
                           post.content.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          post.author.toLowerCase().includes(searchTerm.toLowerCase());
+                          `${post.author.firstName} ${post.author.lastName}`.toLowerCase().includes(searchTerm.toLowerCase());
     
     const matchesCategory = selectedCategory === '' || post.category === selectedCategory;
     
     return matchesSearch && matchesCategory;
   });
+
+  if (loading) {
+    return (
+      <div className="bg-gray-50 min-h-screen py-12">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600 mx-auto"></div>
+            <p className="mt-4 text-gray-600">Loading blog posts...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="bg-gray-50 min-h-screen py-12">
@@ -107,13 +111,9 @@ const BlogPage: React.FC = () => {
             <div key={post.id} className="bg-white overflow-hidden shadow-lg rounded-lg transition-transform hover:scale-105">
               <div className="h-48 bg-gray-200 relative">
                 <img
-                  src={post.imageUrl}
+                  src={`https://images.pexels.com/photos/3762453/pexels-photo-3762453.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2`}
                   alt={post.title}
                   className="w-full h-full object-cover"
-                  onError={(e) => {
-                    const target = e.target as HTMLImageElement;
-                    target.src = '/images/blog/placeholder.jpg';
-                  }}
                 />
                 <div className="absolute top-4 right-4 bg-blue-600 text-white text-xs font-bold uppercase px-2 py-1 rounded-md">
                   {post.category}
@@ -123,7 +123,7 @@ const BlogPage: React.FC = () => {
               <div className="p-6">
                 <h2 className="text-xl font-bold mb-2 text-gray-800">{post.title}</h2>
                 <p className="text-gray-500 text-sm mb-4">
-                  By {post.author} | {new Date(post.date).toLocaleDateString()}
+                  By {post.author.firstName} {post.author.lastName} | {new Date(post.publishedAt).toLocaleDateString()} | {post.views} views
                 </p>
                 <p className="text-gray-600 mb-6">{post.excerpt}</p>
                 

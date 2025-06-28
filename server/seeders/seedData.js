@@ -1,4 +1,4 @@
-import { User, Doctor, Service, BlogPost } from '../models/index.js';
+import { User, Doctor, Service, BlogPost, Appointment, MedicalRecord, Contact } from '../models/index.js';
 import bcrypt from 'bcryptjs';
 
 export const seedDatabase = async () => {
@@ -44,7 +44,7 @@ export const seedDatabase = async () => {
     ]);
 
     // Create doctor profiles
-    await Doctor.bulkCreate([
+    const doctors = await Doctor.bulkCreate([
       {
         userId: doctorUsers[0].id,
         specialization: 'General Dentistry',
@@ -84,7 +84,7 @@ export const seedDatabase = async () => {
     ]);
 
     // Create patient users
-    await User.bulkCreate([
+    const patientUsers = await User.bulkCreate([
       {
         firstName: 'John',
         lastName: 'Smith',
@@ -108,6 +108,88 @@ export const seedDatabase = async () => {
         address: '456 Oak Ave, Somewhere, ST 67890',
         insuranceProvider: 'Cigna Dental',
         insuranceMemberId: 'CG987654321',
+      },
+      {
+        firstName: 'Sarah',
+        lastName: 'Johnson',
+        email: 'sarah.johnson@example.com',
+        password: 'patient123',
+        role: 'patient',
+        phone: '+1-555-555-1234',
+        dateOfBirth: '1985-06-15',
+        address: '789 Pine St, Somewhere, ST 12345',
+        insuranceProvider: 'Delta Dental PPO',
+        insuranceMemberId: 'DD123456789',
+      },
+    ]);
+
+    // Create appointments
+    const today = new Date();
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const nextWeek = new Date(today);
+    nextWeek.setDate(nextWeek.getDate() + 7);
+
+    await Appointment.bulkCreate([
+      {
+        patientId: patientUsers[0].id,
+        doctorId: doctors[0].id,
+        appointmentDate: today.toISOString().split('T')[0],
+        appointmentTime: '10:00',
+        service: 'Dental Cleaning',
+        reason: 'Regular checkup and cleaning',
+        status: 'confirmed',
+        fee: 150.00,
+      },
+      {
+        patientId: patientUsers[1].id,
+        doctorId: doctors[1].id,
+        appointmentDate: tomorrow.toISOString().split('T')[0],
+        appointmentTime: '14:30',
+        service: 'Orthodontic Consultation',
+        reason: 'Initial consultation for braces',
+        status: 'scheduled',
+        fee: 200.00,
+      },
+      {
+        patientId: patientUsers[2].id,
+        doctorId: doctors[0].id,
+        appointmentDate: nextWeek.toISOString().split('T')[0],
+        appointmentTime: '09:00',
+        service: 'Dental Checkup',
+        reason: 'Routine dental examination',
+        status: 'scheduled',
+        fee: 150.00,
+      },
+    ]);
+
+    // Create medical records
+    await MedicalRecord.bulkCreate([
+      {
+        patientId: patientUsers[0].id,
+        doctorId: doctors[0].id,
+        visitDate: new Date('2024-01-15'),
+        procedure: 'Dental Checkup',
+        diagnosis: 'Good oral health, no cavities detected',
+        treatment: 'Professional cleaning performed',
+        notes: 'Patient maintains excellent oral hygiene. Recommended to continue current routine.',
+        prescriptions: [
+          {
+            medication: 'Fluoride Rinse',
+            dosage: 'Use daily after brushing',
+            duration: 'Ongoing'
+          }
+        ],
+      },
+      {
+        patientId: patientUsers[1].id,
+        doctorId: doctors[1].id,
+        visitDate: new Date('2024-02-10'),
+        procedure: 'Orthodontic Assessment',
+        diagnosis: 'Mild crowding of lower teeth',
+        treatment: 'Treatment plan developed for clear aligners',
+        notes: 'Patient is a good candidate for Invisalign treatment. Estimated treatment time: 12-18 months.',
+        prescriptions: [],
       },
     ]);
 
@@ -161,6 +243,34 @@ export const seedDatabase = async () => {
         duration: 180,
         icon: 'Plus',
       },
+      {
+        name: 'Orthodontic Consultation',
+        category: 'Orthodontics',
+        description: 'Initial consultation for orthodontic treatment',
+        price: 150.00,
+        duration: 60,
+        icon: 'AlignLeft',
+      },
+    ]);
+
+    // Create contact submissions
+    await Contact.bulkCreate([
+      {
+        name: 'Alex Wilson',
+        email: 'alex@example.com',
+        phone: '+1-555-111-2222',
+        subject: 'Insurance Question',
+        message: 'Do you accept XYZ insurance? I would like to schedule an appointment.',
+        status: 'new',
+      },
+      {
+        name: 'Emma Davis',
+        email: 'emma@example.com',
+        phone: '+1-555-333-4444',
+        subject: 'Pain After Procedure',
+        message: 'I am experiencing some discomfort after my cleaning yesterday. Is this normal?',
+        status: 'read',
+      },
     ]);
 
     // Create blog posts
@@ -169,7 +279,7 @@ export const seedDatabase = async () => {
         title: 'The Importance of Regular Dental Check-ups',
         slug: 'importance-regular-dental-checkups',
         excerpt: 'Learn why regular dental visits are crucial for maintaining optimal oral health.',
-        content: 'Regular dental check-ups are essential for maintaining good oral health...',
+        content: 'Regular dental check-ups are essential for maintaining good oral health. During these visits, your dentist can detect problems early, provide professional cleaning, and offer personalized advice for your oral care routine.',
         authorId: adminUser.id,
         category: 'Preventive Care',
         tags: ['dental health', 'prevention', 'checkups'],
@@ -180,7 +290,7 @@ export const seedDatabase = async () => {
         title: 'Understanding Tooth Sensitivity',
         slug: 'understanding-tooth-sensitivity',
         excerpt: 'Discover the causes behind tooth sensitivity and effective treatments.',
-        content: 'Tooth sensitivity affects millions of people and can make eating uncomfortable...',
+        content: 'Tooth sensitivity affects millions of people and can make eating uncomfortable. Understanding the causes and available treatments can help you find relief and protect your teeth.',
         authorId: adminUser.id,
         category: 'Dental Health',
         tags: ['sensitivity', 'treatment', 'oral health'],

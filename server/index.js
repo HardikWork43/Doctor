@@ -9,6 +9,7 @@ import serviceRoutes from './routes/services.js';
 import blogRoutes from './routes/blog.js';
 import contactRoutes from './routes/contact.js';
 import adminRoutes from './routes/admin.js';
+import { seedDatabase } from './seeders/seedData.js';
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -60,6 +61,9 @@ const startServer = async () => {
     // Sync database models
     await sequelize.sync({ force: false });
     console.log('Database models synchronized.');
+    
+    // Seed database with initial data
+    await seedDatabase();
     
     app.listen(PORT, () => {
       console.log(`Server is running on port ${PORT}`);

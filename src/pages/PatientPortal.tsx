@@ -1,276 +1,228 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { FaUserCircle, FaTooth, FaCalendarAlt, FaFileMedical, FaCreditCard, FaSignOutAlt, FaLock, FaEnvelope } from 'react-icons/fa';
 
 type Appointment = {
   id: string;
-  date: string;
-  time: string;
-  procedure: string;
-  dentist: string;
-  status: 'confirmed' | 'pending' | 'cancelled';
+  appointmentDate: string;
+  appointmentTime: string;
+  service: string;
+  status: 'confirmed' | 'scheduled' | 'completed' | 'cancelled';
+  doctor: {
+    user: {
+      firstName: string;
+      lastName: string;
+    };
+  };
+  fee: number;
 };
 
 type MedicalRecord = {
   id: string;
-  date: string;
+  visitDate: string;
   procedure: string;
-  dentist: string;
+  diagnosis: string;
+  treatment: string;
   notes: string;
-  attachments: string[];
-};
-
-type Prescription = {
-  id: string;
-  date: string;
-  medication: string;
-  dosage: string;
-  refills: number;
-  dentist: string;
+  prescriptions: any[];
+  doctor: {
+    user: {
+      firstName: string;
+      lastName: string;
+    };
+  };
 };
 
 type Bill = {
   id: string;
-  date: string;
+  appointmentDate: string;
   amount: number;
   status: 'paid' | 'pending' | 'overdue';
-  procedure: string;
+  service: string;
 };
 
 const PatientPortal: React.FC = () => {
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<'dashboard' | 'appointments' | 'records' | 'prescriptions' | 'billing'>('dashboard');
-  const [isLoggedIn, setIsLoggedIn] = useState<boolean>(true);
-  const [showLogin, setShowLogin] = useState<boolean>(false);
-  const [email, setEmail] = useState<string>('');
-  const [password, setPassword] = useState<string>('');
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [patientInfo, setPatientInfo] = useState<any>(null);
+  const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [medicalRecords, setMedicalRecords] = useState<MedicalRecord[]>([]);
   const [showAppointmentForm, setShowAppointmentForm] = useState<boolean>(false);
+  const [doctors, setDoctors] = useState<any[]>([]);
+  const [services, setServices] = useState<any[]>([]);
   const [newAppointment, setNewAppointment] = useState({
-    date: '',
-    time: '',
-    procedure: '',
+    doctorId: '',
+    appointmentDate: '',
+    appointmentTime: '',
+    service: '',
     reason: ''
   });
 
-  // Mock data
-  const patientInfo = {
-    name: 'Sarah Johnson',
-    email: 'sarah.johnson@example.com',
-    phone: '(555) 123-4567',
-    dob: '1985-06-15',
-    insurance: 'Delta Dental PPO',
-    memberId: 'DD123456789'
-  };
+  // Check authentication status
+  useEffect(() => {
+    const checkAuth = async () => {
+      const token = localStorage.getItem('authToken');
+      if (!token) {
+        navigate('/login');
+        return;
+      }
 
-  const appointments: Appointment[] = [
-    {
-      id: '1',
-      date: '2023-06-15',
-      time: '10:00 AM',
-      procedure: 'Dental Cleaning',
-      dentist: 'Dr. Emily Chen',
-      status: 'confirmed'
-    },
-    {
-      id: '2',
-      date: '2023-07-20',
-      time: '2:30 PM',
-      procedure: 'Tooth Filling',
-      dentist: 'Dr. Michael Rodriguez',
-      status: 'pending'
+      try {
+        const response = await fetch('http://localhost:5000/api/auth/me', {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          if (data.data.user.role === 'patient') {
+            setPatientInfo(data.data.user);
+            setIsAuthenticated(true);
+            await loadPatientData();
+          } else {
+            navigate('/login');
+          }
+        } else {
+          navigate('/login');
+        }
+      } catch (error) {
+        console.error('Auth check failed:', error);
+        navigate('/login');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    checkAuth();
+  }, [navigate]);
+
+  const loadPatientData = async () => {
+    const token = localStorage.getItem('authToken');
+    try {
+      // Load appointments
+      const appointmentsResponse = await fetch('http://localhost:5000/api/appointments', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (appointmentsResponse.ok) {
+        const appointmentsData = await appointmentsResponse.json();
+        setAppointments(appointmentsData.data.appointments);
+      }
+
+      // Load doctors
+      const doctorsResponse = await fetch('http://localhost:5000/api/doctors');
+      if (doctorsResponse.ok) {
+        const doctorsData = await doctorsResponse.json();
+        setDoctors(doctorsData.data.doctors);
+      }
+
+      // Load services
+      const servicesResponse = await fetch('http://localhost:5000/api/services');
+      if (servicesResponse.ok) {
+        const servicesData = await servicesResponse.json();
+        setServices(servicesData.data.services);
+      }
+
+      // Load medical records (if patient has access)
+      try {
+        const recordsResponse = await fetch(`http://localhost:5000/api/patients/${patientInfo?.id}`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (recordsResponse.ok) {
+          const recordsData = await recordsResponse.json();
+          setMedicalRecords(recordsData.data.patient.medicalRecords || []);
+        }
+      } catch (error) {
+        console.log('Medical records not available');
+      }
+
+    } catch (error) {
+      console.error('Failed to load patient data:', error);
     }
-  ];
-
-  const medicalRecords: MedicalRecord[] = [
-    {
-      id: '1',
-      date: '2023-05-10',
-      procedure: 'Dental Checkup',
-      dentist: 'Dr. Emily Chen',
-      notes: 'No cavities detected. Recommended regular flossing.',
-      attachments: ['xray-20230510.pdf']
-    },
-    {
-      id: '2',
-      date: '2023-01-15',
-      procedure: 'Root Canal',
-      dentist: 'Dr. Michael Rodriguez',
-      notes: 'Completed root canal on tooth #19. Patient tolerated procedure well.',
-      attachments: ['xray-20230115.pdf', 'treatment-plan-20230115.pdf']
-    }
-  ];
-
-  const prescriptions: Prescription[] = [
-    {
-      id: '1',
-      date: '2023-05-10',
-      medication: 'Amoxicillin',
-      dosage: '500mg 3 times daily',
-      refills: 0,
-      dentist: 'Dr. Emily Chen'
-    },
-    {
-      id: '2',
-      date: '2023-01-15',
-      medication: 'Ibuprofen',
-      dosage: '400mg every 6 hours as needed',
-      refills: 2,
-      dentist: 'Dr. Michael Rodriguez'
-    }
-  ];
-
-  const bills: Bill[] = [
-    {
-      id: '1',
-      date: '2023-05-15',
-      amount: 150,
-      status: 'paid',
-      procedure: 'Dental Checkup'
-    },
-    {
-      id: '2',
-      date: '2023-01-20',
-      amount: 1200,
-      status: 'paid',
-      procedure: 'Root Canal'
-    },
-    {
-      id: '3',
-      date: '2023-07-01',
-      amount: 85,
-      status: 'pending',
-      procedure: 'Teeth Cleaning'
-    }
-  ];
-
-  const handleLogin = (e: React.FormEvent) => {
-    e.preventDefault();
-    // Authentication logic would go here
-    setIsLoggedIn(true);
-    setShowLogin(false);
   };
 
   const handleLogout = () => {
-    setIsLoggedIn(false);
+    localStorage.removeItem('authToken');
+    localStorage.removeItem('patientAuthenticated');
+    navigate('/login');
   };
 
-  const handleAppointmentSubmit = (e: React.FormEvent) => {
+  const handleAppointmentSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Appointment submission logic would go here
-    setShowAppointmentForm(false);
-    setNewAppointment({ date: '', time: '', procedure: '', reason: '' });
+    const token = localStorage.getItem('authToken');
+    
+    try {
+      const response = await fetch('http://localhost:5000/api/appointments', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(newAppointment)
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setAppointments([...appointments, data.data.appointment]);
+        setShowAppointmentForm(false);
+        setNewAppointment({ doctorId: '', appointmentDate: '', appointmentTime: '', service: '', reason: '' });
+        alert('Appointment scheduled successfully!');
+      } else {
+        const errorData = await response.json();
+        alert(errorData.message || 'Failed to schedule appointment');
+      }
+    } catch (error) {
+      console.error('Failed to schedule appointment:', error);
+      alert('Failed to schedule appointment');
+    }
   };
 
-  const cancelAppointment = (id: string) => {
-    // Cancellation logic would go here
-    alert(`Appointment ${id} cancellation requested`);
+  const cancelAppointment = async (id: string) => {
+    const token = localStorage.getItem('authToken');
+    try {
+      const response = await fetch(`http://localhost:5000/api/appointments/${id}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (response.ok) {
+        setAppointments(appointments.map(apt => 
+          apt.id === id ? { ...apt, status: 'cancelled' } : apt
+        ));
+        alert('Appointment cancelled successfully');
+      }
+    } catch (error) {
+      console.error('Failed to cancel appointment:', error);
+    }
   };
 
-  if (!isLoggedIn) {
+  if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
-        <div className="sm:mx-auto sm:w-full sm:max-w-md">
-          <div className="flex justify-center">
-            <FaTooth className="text-blue-600 text-5xl" />
-          </div>
-          <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
-            Patient Portal Login
-          </h2>
-        </div>
-
-        <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
-          <div className="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10">
-            <form className="space-y-6" onSubmit={handleLogin}>
-              <div>
-                <label htmlFor="email" className="block text-sm font-medium text-gray-700">
-                  Email address
-                </label>
-                <div className="mt-1 relative rounded-md shadow-sm">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <FaEnvelope className="h-5 w-5 text-gray-400" />
-                  </div>
-                  <input
-                    id="email"
-                    name="email"
-                    type="email"
-                    autoComplete="email"
-                    required
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    className="py-2 pl-10 block w-full border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label htmlFor="password" className="block text-sm font-medium text-gray-700">
-                  Password
-                </label>
-                <div className="mt-1 relative rounded-md shadow-sm">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <FaLock className="h-5 w-5 text-gray-400" />
-                  </div>
-                  <input
-                    id="password"
-                    name="password"
-                    type="password"
-                    autoComplete="current-password"
-                    required
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    className="py-2 pl-10 block w-full border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                  />
-                </div>
-              </div>
-
-              <div className="flex items-center justify-between">
-                <div className="flex items-center">
-                  <input
-                    id="remember-me"
-                    name="remember-me"
-                    type="checkbox"
-                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                  />
-                  <label htmlFor="remember-me" className="ml-2 block text-sm text-gray-900">
-                    Remember me
-                  </label>
-                </div>
-
-                <div className="text-sm">
-                  <a href="#" className="font-medium text-blue-600 hover:text-blue-500">
-                    Forgot your password?
-                  </a>
-                </div>
-              </div>
-
-              <div>
-                <button
-                  type="submit"
-                  className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                >
-                  Sign in
-                </button>
-              </div>
-            </form>
-
-            <div className="mt-6">
-              <div className="relative">
-                <div className="absolute inset-0 flex items-center">
-                  <div className="w-full border-t border-gray-300" />
-                </div>
-                <div className="relative flex justify-center text-sm">
-                  <span className="px-2 bg-white text-gray-500">
-                    New patient?{' '}
-                    <a href="#" className="font-medium text-blue-600 hover:text-blue-500">
-                      Register here
-                    </a>
-                  </span>
-                </div>
-              </div>
-            </div>
-          </div>
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600"></div>
+          <p className="mt-4 text-gray-600">Loading...</p>
         </div>
       </div>
     );
   }
+
+  if (!isAuthenticated) {
+    return null;
+  }
+
+  // Calculate bills from appointments
+  const bills: Bill[] = appointments.map(apt => ({
+    id: apt.id,
+    appointmentDate: apt.appointmentDate,
+    amount: apt.fee || 0,
+    status: apt.status === 'completed' ? 'paid' : 'pending',
+    service: apt.service
+  }));
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -299,8 +251,8 @@ const PatientPortal: React.FC = () => {
             <div className="flex items-center mb-6">
               <FaUserCircle className="text-4xl text-gray-400 mr-3" />
               <div>
-                <h2 className="font-bold">{patientInfo.name}</h2>
-                <p className="text-sm text-gray-500">Patient ID: DC{Math.floor(Math.random() * 1000000)}</p>
+                <h2 className="font-bold">{patientInfo?.firstName} {patientInfo?.lastName}</h2>
+                <p className="text-sm text-gray-500">Patient ID: {patientInfo?.id}</p>
               </div>
             </div>
 
@@ -327,13 +279,6 @@ const PatientPortal: React.FC = () => {
                 Medical Records
               </button>
               <button
-                onClick={() => setActiveTab('prescriptions')}
-                className={`w-full flex items-center px-3 py-2 text-sm font-medium rounded-md mb-1 ${activeTab === 'prescriptions' ? 'bg-blue-50 text-blue-700' : 'text-gray-600 hover:bg-gray-50'}`}
-              >
-                <FaFileMedical className="mr-3" />
-                Prescriptions
-              </button>
-              <button
                 onClick={() => setActiveTab('billing')}
                 className={`w-full flex items-center px-3 py-2 text-sm font-medium rounded-md mb-1 ${activeTab === 'billing' ? 'bg-blue-50 text-blue-700' : 'text-gray-600 hover:bg-gray-50'}`}
               >
@@ -347,23 +292,30 @@ const PatientPortal: React.FC = () => {
           <div className="flex-1 bg-white p-6 rounded-lg shadow">
             {activeTab === 'dashboard' && (
               <div>
-                <h2 className="text-xl font-bold mb-6">Welcome back, {patientInfo.name.split(' ')[0]}!</h2>
+                <h2 className="text-xl font-bold mb-6">Welcome back, {patientInfo?.firstName}!</h2>
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
                   <div className="bg-blue-50 p-4 rounded-lg">
                     <h3 className="font-medium text-blue-800 mb-2">Upcoming Appointment</h3>
-                    {appointments.length > 0 ? (
+                    {appointments.filter(apt => new Date(apt.appointmentDate) >= new Date() && apt.status !== 'cancelled').length > 0 ? (
                       <div>
-                        <p className="text-lg font-semibold">{appointments[0].procedure}</p>
-                        <p className="text-gray-600">{appointments[0].date} at {appointments[0].time}</p>
-                        <p className="text-gray-600">With {appointments[0].dentist}</p>
-                        <span className={`inline-block mt-2 px-2 py-1 text-xs rounded-full ${
-                          appointments[0].status === 'confirmed' ? 'bg-green-100 text-green-800' :
-                          appointments[0].status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                          'bg-red-100 text-red-800'
-                        }`}>
-                          {appointments[0].status}
-                        </span>
+                        {(() => {
+                          const upcomingApt = appointments.filter(apt => new Date(apt.appointmentDate) >= new Date() && apt.status !== 'cancelled')[0];
+                          return (
+                            <div>
+                              <p className="text-lg font-semibold">{upcomingApt.service}</p>
+                              <p className="text-gray-600">{upcomingApt.appointmentDate} at {upcomingApt.appointmentTime}</p>
+                              <p className="text-gray-600">With Dr. {upcomingApt.doctor.user.firstName} {upcomingApt.doctor.user.lastName}</p>
+                              <span className={`inline-block mt-2 px-2 py-1 text-xs rounded-full ${
+                                upcomingApt.status === 'confirmed' ? 'bg-green-100 text-green-800' :
+                                upcomingApt.status === 'scheduled' ? 'bg-yellow-100 text-yellow-800' :
+                                'bg-red-100 text-red-800'
+                              }`}>
+                                {upcomingApt.status}
+                              </span>
+                            </div>
+                          );
+                        })()}
                       </div>
                     ) : (
                       <p>No upcoming appointments</p>
@@ -375,8 +327,8 @@ const PatientPortal: React.FC = () => {
                     {bills.length > 0 ? (
                       <div>
                         <p className="text-lg font-semibold">${bills[0].amount.toFixed(2)}</p>
-                        <p className="text-gray-600">{bills[0].procedure}</p>
-                        <p className="text-gray-600">Due: {bills[0].date}</p>
+                        <p className="text-gray-600">{bills[0].service}</p>
+                        <p className="text-gray-600">Date: {bills[0].appointmentDate}</p>
                         <span className={`inline-block mt-2 px-2 py-1 text-xs rounded-full ${
                           bills[0].status === 'paid' ? 'bg-green-100 text-green-800' :
                           bills[0].status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
@@ -396,27 +348,27 @@ const PatientPortal: React.FC = () => {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <p className="text-sm text-gray-500">Full Name</p>
-                      <p className="font-medium">{patientInfo.name}</p>
+                      <p className="font-medium">{patientInfo?.firstName} {patientInfo?.lastName}</p>
                     </div>
                     <div>
                       <p className="text-sm text-gray-500">Email</p>
-                      <p className="font-medium">{patientInfo.email}</p>
+                      <p className="font-medium">{patientInfo?.email}</p>
                     </div>
                     <div>
                       <p className="text-sm text-gray-500">Phone</p>
-                      <p className="font-medium">{patientInfo.phone}</p>
+                      <p className="font-medium">{patientInfo?.phone}</p>
                     </div>
                     <div>
                       <p className="text-sm text-gray-500">Date of Birth</p>
-                      <p className="font-medium">{patientInfo.dob}</p>
+                      <p className="font-medium">{patientInfo?.dateOfBirth}</p>
                     </div>
                     <div>
                       <p className="text-sm text-gray-500">Insurance Provider</p>
-                      <p className="font-medium">{patientInfo.insurance}</p>
+                      <p className="font-medium">{patientInfo?.insuranceProvider || 'N/A'}</p>
                     </div>
                     <div>
                       <p className="text-sm text-gray-500">Member ID</p>
-                      <p className="font-medium">{patientInfo.memberId}</p>
+                      <p className="font-medium">{patientInfo?.insuranceMemberId || 'N/A'}</p>
                     </div>
                   </div>
                 </div>
@@ -436,7 +388,7 @@ const PatientPortal: React.FC = () => {
                       className="flex items-center px-4 py-2 bg-green-100 text-green-700 rounded-md hover:bg-green-200"
                     >
                       <FaCreditCard className="mr-2" />
-                      Pay Bill
+                      View Bills
                     </button>
                   </div>
                 </div>
@@ -461,41 +413,67 @@ const PatientPortal: React.FC = () => {
                     <form onSubmit={handleAppointmentSubmit}>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                         <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Doctor</label>
+                          <select
+                            value={newAppointment.doctorId}
+                            onChange={(e) => setNewAppointment({...newAppointment, doctorId: e.target.value})}
+                            className="w-full p-2 border border-gray-300 rounded-md"
+                            required
+                          >
+                            <option value="">Select a doctor</option>
+                            {doctors.map((doctor) => (
+                              <option key={doctor.id} value={doctor.id}>
+                                Dr. {doctor.user.firstName} {doctor.user.lastName} - {doctor.specialization}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Service</label>
+                          <select
+                            value={newAppointment.service}
+                            onChange={(e) => setNewAppointment({...newAppointment, service: e.target.value})}
+                            className="w-full p-2 border border-gray-300 rounded-md"
+                            required
+                          >
+                            <option value="">Select a service</option>
+                            {services.map((service) => (
+                              <option key={service.id} value={service.name}>
+                                {service.name} - ${service.price}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                        <div>
                           <label className="block text-sm font-medium text-gray-700 mb-1">Date</label>
                           <input
                             type="date"
-                            value={newAppointment.date}
-                            onChange={(e) => setNewAppointment({...newAppointment, date: e.target.value})}
+                            value={newAppointment.appointmentDate}
+                            onChange={(e) => setNewAppointment({...newAppointment, appointmentDate: e.target.value})}
                             className="w-full p-2 border border-gray-300 rounded-md"
+                            min={new Date().toISOString().split('T')[0]}
                             required
                           />
                         </div>
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-1">Time</label>
-                          <input
-                            type="time"
-                            value={newAppointment.time}
-                            onChange={(e) => setNewAppointment({...newAppointment, time: e.target.value})}
+                          <select
+                            value={newAppointment.appointmentTime}
+                            onChange={(e) => setNewAppointment({...newAppointment, appointmentTime: e.target.value})}
                             className="w-full p-2 border border-gray-300 rounded-md"
                             required
-                          />
+                          >
+                            <option value="">Select a time</option>
+                            <option value="09:00">9:00 AM</option>
+                            <option value="10:00">10:00 AM</option>
+                            <option value="11:00">11:00 AM</option>
+                            <option value="12:00">12:00 PM</option>
+                            <option value="14:00">2:00 PM</option>
+                            <option value="15:00">3:00 PM</option>
+                            <option value="16:00">4:00 PM</option>
+                            <option value="17:00">5:00 PM</option>
+                          </select>
                         </div>
-                      </div>
-                      <div className="mb-4">
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Procedure</label>
-                        <select
-                          value={newAppointment.procedure}
-                          onChange={(e) => setNewAppointment({...newAppointment, procedure: e.target.value})}
-                          className="w-full p-2 border border-gray-300 rounded-md"
-                          required
-                        >
-                          <option value="">Select a procedure</option>
-                          <option value="Cleaning">Cleaning</option>
-                          <option value="Checkup">Checkup</option>
-                          <option value="Filling">Filling</option>
-                          <option value="Extraction">Extraction</option>
-                          <option value="Whitening">Whitening</option>
-                        </select>
                       </div>
                       <div className="mb-4">
                         <label className="block text-sm font-medium text-gray-700 mb-1">Reason for Visit</label>
@@ -531,8 +509,8 @@ const PatientPortal: React.FC = () => {
                       <tr>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Time</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Procedure</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Dentist</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Service</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Doctor</th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                       </tr>
@@ -540,27 +518,31 @@ const PatientPortal: React.FC = () => {
                     <tbody className="bg-white divide-y divide-gray-200">
                       {appointments.map((appointment) => (
                         <tr key={appointment.id}>
-                          <td className="px-6 py-4 whitespace-nowrap">{appointment.date}</td>
-                          <td className="px-6 py-4 whitespace-nowrap">{appointment.time}</td>
-                          <td className="px-6 py-4 whitespace-nowrap">{appointment.procedure}</td>
-                          <td className="px-6 py-4 whitespace-nowrap">{appointment.dentist}</td>
+                          <td className="px-6 py-4 whitespace-nowrap">{appointment.appointmentDate}</td>
+                          <td className="px-6 py-4 whitespace-nowrap">{appointment.appointmentTime}</td>
+                          <td className="px-6 py-4 whitespace-nowrap">{appointment.service}</td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            Dr. {appointment.doctor.user.firstName} {appointment.doctor.user.lastName}
+                          </td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             <span className={`px-2 py-1 text-xs rounded-full ${
                               appointment.status === 'confirmed' ? 'bg-green-100 text-green-800' :
-                              appointment.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                              appointment.status === 'scheduled' ? 'bg-yellow-100 text-yellow-800' :
+                              appointment.status === 'completed' ? 'bg-blue-100 text-blue-800' :
                               'bg-red-100 text-red-800'
                             }`}>
                               {appointment.status}
                             </span>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
-                            <button
-                              onClick={() => cancelAppointment(appointment.id)}
-                              className="text-red-600 hover:text-red-900"
-                              disabled={appointment.status === 'cancelled'}
-                            >
-                              Cancel
-                            </button>
+                            {appointment.status !== 'cancelled' && appointment.status !== 'completed' && (
+                              <button
+                                onClick={() => cancelAppointment(appointment.id)}
+                                className="text-red-600 hover:text-red-900"
+                              >
+                                Cancel
+                              </button>
+                            )}
                           </td>
                         </tr>
                       ))}
@@ -574,67 +556,60 @@ const PatientPortal: React.FC = () => {
               <div>
                 <h2 className="text-xl font-bold mb-6">Medical Records</h2>
                 <div className="space-y-4">
-                  {medicalRecords.map((record) => (
+                  {medicalRecords.length > 0 ? medicalRecords.map((record) => (
                     <div key={record.id} className="border border-gray-200 rounded-lg p-4">
                       <div className="flex justify-between items-start">
                         <div>
                           <h3 className="font-semibold">{record.procedure}</h3>
-                          <p className="text-sm text-gray-500">{record.date} • {record.dentist}</p>
+                          <p className="text-sm text-gray-500">
+                            {new Date(record.visitDate).toLocaleDateString()} • 
+                            Dr. {record.doctor.user.firstName} {record.doctor.user.lastName}
+                          </p>
                         </div>
                         <span className="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full">
                           Completed
                         </span>
                       </div>
-                      <p className="mt-2 text-gray-700">{record.notes}</p>
-                      {record.attachments.length > 0 && (
-                        <div className="mt-3">
-                          <h4 className="text-sm font-medium text-gray-700 mb-1">Attachments:</h4>
-                          <div className="flex flex-wrap gap-2">
-                            {record.attachments.map((file, index) => (
-                              <a 
-                                key={index} 
-                                href="#" 
-                                className="text-blue-600 hover:text-blue-800 text-sm flex items-center"
-                              >
-                                <FaFileMedical className="mr-1" />
-                                {file}
-                              </a>
+                      <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <h4 className="font-medium text-gray-700">Diagnosis</h4>
+                          <p className="text-gray-600">{record.diagnosis}</p>
+                        </div>
+                        <div>
+                          <h4 className="font-medium text-gray-700">Treatment</h4>
+                          <p className="text-gray-600">{record.treatment}</p>
+                        </div>
+                      </div>
+                      {record.notes && (
+                        <div className="mt-4">
+                          <h4 className="font-medium text-gray-700">Notes</h4>
+                          <p className="text-gray-600">{record.notes}</p>
+                        </div>
+                      )}
+                      {record.prescriptions && record.prescriptions.length > 0 && (
+                        <div className="mt-4">
+                          <h4 className="font-medium text-gray-700">Prescriptions</h4>
+                          <div className="space-y-2">
+                            {record.prescriptions.map((prescription, index) => (
+                              <div key={index} className="bg-gray-50 p-2 rounded">
+                                <p className="font-medium">{prescription.medication}</p>
+                                <p className="text-sm text-gray-600">{prescription.dosage}</p>
+                                <p className="text-sm text-gray-600">Duration: {prescription.duration}</p>
+                              </div>
                             ))}
                           </div>
                         </div>
                       )}
                     </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {activeTab === 'prescriptions' && (
-              <div>
-                <h2 className="text-xl font-bold mb-6">Prescriptions</h2>
-                <div className="overflow-x-auto">
-                  <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-50">
-                      <tr>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Medication</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Dosage</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Refills</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Prescribed By</th>
-                      </tr>
-                    </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
-                      {prescriptions.map((prescription) => (
-                        <tr key={prescription.id}>
-                          <td className="px-6 py-4 whitespace-nowrap">{prescription.date}</td>
-                          <td className="px-6 py-4 whitespace-nowrap font-medium">{prescription.medication}</td>
-                          <td className="px-6 py-4 whitespace-nowrap">{prescription.dosage}</td>
-                          <td className="px-6 py-4 whitespace-nowrap">{prescription.refills}</td>
-                          <td className="px-6 py-4 whitespace-nowrap">{prescription.dentist}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                  )) : (
+                    <div className="text-center py-8">
+                      <FaFileMedical className="mx-auto h-12 w-12 text-gray-400" />
+                      <h3 className="mt-2 text-sm font-medium text-gray-900">No medical records</h3>
+                      <p className="mt-1 text-sm text-gray-500">
+                        Your medical records will appear here after your appointments.
+                      </p>
+                    </div>
+                  )}
                 </div>
               </div>
             )}
@@ -647,7 +622,7 @@ const PatientPortal: React.FC = () => {
                     <thead className="bg-gray-50">
                       <tr>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Procedure</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Service</th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
@@ -656,8 +631,8 @@ const PatientPortal: React.FC = () => {
                     <tbody className="bg-white divide-y divide-gray-200">
                       {bills.map((bill) => (
                         <tr key={bill.id}>
-                          <td className="px-6 py-4 whitespace-nowrap">{bill.date}</td>
-                          <td className="px-6 py-4 whitespace-nowrap">{bill.procedure}</td>
+                          <td className="px-6 py-4 whitespace-nowrap">{bill.appointmentDate}</td>
+                          <td className="px-6 py-4 whitespace-nowrap">{bill.service}</td>
                           <td className="px-6 py-4 whitespace-nowrap">${bill.amount.toFixed(2)}</td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             <span className={`px-2 py-1 text-xs rounded-full ${
