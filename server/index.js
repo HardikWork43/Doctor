@@ -9,6 +9,8 @@ import serviceRoutes from './routes/services.js';
 import blogRoutes from './routes/blog.js';
 import contactRoutes from './routes/contact.js';
 import adminRoutes from './routes/admin.js';
+import notificationRoutes from './routes/notifications.js';
+import doctorAvailabilityRoutes from './routes/doctor-availability.js';
 import { seedDatabase } from './seeders/seedData.js';
 
 const app = express();
@@ -28,6 +30,8 @@ app.use('/api/services', serviceRoutes);
 app.use('/api/blog', blogRoutes);
 app.use('/api/contact', contactRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/notifications', notificationRoutes);
+app.use('/api/doctor-availability', doctorAvailabilityRoutes);
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {

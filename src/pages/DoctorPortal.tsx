@@ -7,6 +7,7 @@ import DoctorAppointments from '../components/doctor/DoctorAppointments';
 import DoctorPatients from '../components/doctor/DoctorPatients';
 import DoctorMedicalRecords from '../components/doctor/DoctorMedicalRecords';
 import DoctorProfile from '../components/doctor/DoctorProfile';
+import DoctorAvailabilityManager from '../components/doctor/DoctorAvailabilityManager';
 
 type Appointment = {
   id: string;
@@ -52,7 +53,7 @@ type DashboardStats = {
 
 const DoctorPortal: React.FC = () => {
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'appointments' | 'patients' | 'records' | 'profile'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'appointments' | 'patients' | 'records' | 'availability' | 'profile'>('dashboard');
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(true);
   const [doctorInfo, setDoctorInfo] = useState<any>(null);
@@ -204,6 +205,8 @@ const DoctorPortal: React.FC = () => {
         return <DoctorPatients patients={patients} />;
       case 'records':
         return <DoctorMedicalRecords medicalRecords={medicalRecords} />;
+      case 'availability':
+        return <DoctorAvailabilityManager />;
       case 'profile':
         return <DoctorProfile doctorInfo={doctorInfo} />;
       default:

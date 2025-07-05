@@ -5,6 +5,8 @@ import MedicalRecord from './MedicalRecord.js';
 import Service from './Service.js';
 import BlogPost from './BlogPost.js';
 import Contact from './Contact.js';
+import Notification from './Notification.js';
+import DoctorAvailability from './DoctorAvailability.js';
 
 // Define associations
 User.hasOne(Doctor, { foreignKey: 'userId', as: 'doctorProfile' });
@@ -28,6 +30,12 @@ MedicalRecord.belongsTo(Appointment, { foreignKey: 'appointmentId', as: 'appoint
 User.hasMany(BlogPost, { foreignKey: 'authorId', as: 'blogPosts' });
 BlogPost.belongsTo(User, { foreignKey: 'authorId', as: 'author' });
 
+User.hasMany(Notification, { foreignKey: 'userId', as: 'notifications' });
+Notification.belongsTo(User, { foreignKey: 'userId', as: 'user' });
+
+Doctor.hasMany(DoctorAvailability, { foreignKey: 'doctorId', as: 'availability' });
+DoctorAvailability.belongsTo(Doctor, { foreignKey: 'doctorId', as: 'doctor' });
+
 export {
   User,
   Doctor,
@@ -36,4 +44,6 @@ export {
   Service,
   BlogPost,
   Contact,
+  Notification,
+  DoctorAvailability,
 };

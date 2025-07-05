@@ -1,5 +1,6 @@
 import React from 'react';
 import { FaUserMd, FaSignOutAlt } from 'react-icons/fa';
+import NotificationBell from '../notifications/NotificationBell';
 
 type DoctorHeaderProps = {
   doctorInfo: any;
@@ -18,6 +19,7 @@ const DoctorHeader: React.FC<DoctorHeaderProps> = ({ doctorInfo, onLogout }) => 
           <span className="text-gray-700">
             Dr. {doctorInfo?.firstName} {doctorInfo?.lastName}
           </span>
+          <NotificationBell userRole="doctor" />
           <button
             onClick={onLogout}
             className="flex items-center text-gray-500 hover:text-gray-700"

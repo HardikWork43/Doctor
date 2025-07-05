@@ -1,5 +1,5 @@
 import React from 'react';
-import { FaUserCircle, FaChartLine, FaCalendarAlt, FaUsers, FaFileMedical } from 'react-icons/fa';
+import { FaUserCircle, FaChartLine, FaCalendarAlt, FaUsers, FaFileMedical, FaClock } from 'react-icons/fa';
 
 type DoctorSidebarProps = {
   doctorInfo: any;
@@ -13,6 +13,7 @@ const DoctorSidebar: React.FC<DoctorSidebarProps> = ({ doctorInfo, activeTab, on
     { id: 'appointments', label: 'Appointments', icon: FaCalendarAlt },
     { id: 'patients', label: 'Patients', icon: FaUsers },
     { id: 'records', label: 'Medical Records', icon: FaFileMedical },
+    { id: 'availability', label: 'Availability', icon: FaClock },
     { id: 'profile', label: 'Profile', icon: FaUserCircle },
   ];
 
